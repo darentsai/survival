@@ -1,7 +1,7 @@
 # Natural spline, parameterized so that the coefficients are the values of the
 #  spline at the knots.
 #
-nsk <- function(x, df=NULL, knots=NULL, intercept=FALSE, b=.05,
+nsk <- function(x, df=1, knots=NULL, intercept=FALSE, b = ifelse(df <= 2, 0.1, 0.05),
                 Boundary.knots = quantile(x, c(b, 1-b), na.rm=TRUE)) {
 
     if (is.logical(Boundary.knots)) {
