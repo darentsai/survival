@@ -1,7 +1,7 @@
 # Automatically generated from the noweb directory
 predict.coxph <- function(object, newdata, 
                        type=c("lp", "risk", "expected", "terms", "survival"),
-                       se.fit=FALSE, na.action=na.pass,
+                       se.fit=FALSE, full.cov=FALSE, na.action=na.pass,
                        terms=names(object$assign), collapse, 
                        reference=c("strata", "sample", "zero"), ...) {
     if (!inherits(object, 'coxph'))
@@ -330,6 +330,8 @@ predict.coxph <- function(object, newdata,
             }
         }
 
-    if (se.fit) list(fit=pred, se.fit=se)
-    else pred
-    }
+    if (se.fit) {
+      if (full.cov) list(fit=pred, vcov.fit = newx %*% object$var %*% t(newx))
+      else list(fit=pred, se.fit=se)
+    } else pred
+}
