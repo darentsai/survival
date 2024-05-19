@@ -1,12 +1,19 @@
-# Automatically generated from the noweb directory
+# The underlying method for survfit calls
 survfit <- function(formula, ...) {
     UseMethod("survfit")
 }
 
+# The primary use is survfit(formula,...) which is below, or
+#  survfit(coxph-fit-object)
+#
+# The formula, data, weights, subset, and na.action args are similar to other
+#  model functions.  See the help page for the remaining args, and see the
+#  methods document for computational details.
 survfit.formula <- function(formula, data, weights, subset, 
                             na.action, stype=1, ctype=1, 
                             id, cluster, robust, istate, 
-                            timefix=TRUE, etype, model=FALSE, error, ...) {
+                            timefix=TRUE, etype, model=FALSE, error, 
+                            entry=FALSE,  time0=FALSE, ...) {
 
     Call <- match.call()
     Call[[1]] <- as.name('survfit')  #make nicer printout for the user
@@ -28,6 +35,8 @@ survfit.formula <- function(formula, data, weights, subset,
 
     n <- nrow(mf)
     Y <- model.response(mf)
+    # The Surv2 approach is experimental, and may not survive.  If a data set is
+    #  in that form, covert it to a "standard" layout
     if (inherits(Y, "Surv2")) {
         # this is Surv2 style data
         # if there are any obs removed due to missing, remake the model frame
@@ -117,17 +126,23 @@ survfit.formula <- function(formula, data, weights, subset,
     if (timefix) newY <- aeqSurv(Y) else newY <- Y
     
     if (missing(robust)) robust <- NULL
-    # Call the appropriate helper function
+    if (!is.logical(time0)) stop("time0 must be TRUE/FALSE")
+
+    # Call the appropriate helper function, which does the real work
+    # Turnbull for interval censored data
+    # KM = Kaplan-Meier for survival with a single endpoint
+    # AJ = Aalen-Johansen for multi-state models
     if (attr(Y, 'type') == 'left' || attr(Y, 'type') == 'interval')
         temp <-  survfitTurnbull(X, newY, casewt, cluster= cluster,
-                                 robust= robust, ...)
+                                 robust= robust, time0= time0,...)
     else if (attr(Y, 'type') == "right" || attr(Y, 'type')== "counting")
         temp <- survfitKM(X, newY, casewt, stype=stype, ctype=ctype, id=id, 
-                          cluster=cluster, robust=robust, ...)
+                          cluster=cluster, robust=robust, entry=entry, 
+                          time0=time0, ...)
     else if (attr(Y, 'type') == "mright" || attr(Y, "type")== "mcounting")
-        temp <- survfitCI(X, newY, weights=casewt, stype=stype, ctype=ctype, 
+        temp <- survfitAJ(X, newY, weights=casewt, stype=stype, ctype=ctype, 
                           id=id, cluster=cluster, robust=robust, 
-                          istate=istate, ...)
+                          istate=istate, entry=entry, time0=time0, ...)
     else {
         # This should never happen
         stop("unrecognized survival type")
@@ -135,7 +150,7 @@ survfit.formula <- function(formula, data, weights, subset,
 
     # If a stratum had no one beyond start.time, the length 0 gives downstream
     #  failure, e.g., there is no sensible printout for summary(fit, time= 100)
-    #  for such a curve
+    #  for such a curve with no one who makes it to 100.
     temp$strata <- temp$strata[temp$strata >0]  
     if (is.null(temp$states)) class(temp) <- 'survfit'
     else class(temp) <- c("survfitms", "survfit")
@@ -146,27 +161,37 @@ survfit.formula <- function(formula, data, weights, subset,
     temp$call <- Call
     temp
     }
+
+# Return the dimension of a survfit object
+# Number of groups = right hand side of formula in survfit.formula, or strata in
+#  survival from a Cox model
+# Number of rows in the newdata data set, for a Cox model
+# Number of states, for a multi-state outcome
 dim.survfit <- function(x) {
     d1name <- "strata"
     d2name <- "data"
-    d3name <- "states"
+    d3name <- "states"    
     if (is.null(x$strata))  {d1 <- d1name <- NULL} else d1 <- length(x$strata)
-    if (is.null(x$newdata)) {d2 <- d2name <- NULL} else d2 <- nrow(x$newdata)
-    if (is.null(x$states))  {d3 <- d3name <- NULL} else d3 <- length(x$states)
-    
-    if (inherits(x, "survfitcox") && is.null(d2) && is.null(d3) &&
-        is.matrix(x$surv)) {
-        # older style survfit.coxph object, before I added newdata to the output
-        d2name <- "data"
-        d2 <- ncol(x$surv)
+    # d3 is present for a survfitms object, null otherwise
+    if (is.null(x$states))  {
+        d3 <- d3name <- NULL
+        if (is.matrix(x$surv)) d2 <- ncol(x$surv)
+        else {d2 <- d2name <- NULL}
+    } else {
+        d3 <- length(x$states) 
+        dp <- dim(x$pstate)
+        if (length(dp) ==3) d2 <- dp[2]
+        else {d2 <- d2name <- NULL}
     }
-
+    
     dd <- c(d1, d2, d3)
     names(dd) <- c(d1name, d2name, d3name)
     dd
 }
 
-# there is a separate function for survfitms objects
+# The subscript function for a survfit object
+# there is a separate subscript function for survfitms objects
+# See survfit:subscript in the methods document
 "[.survfit" <- function(x, ... , drop=TRUE) {
     nmatch <- function(indx, target) { 
         # This function lets R worry about character, negative, or 
@@ -277,7 +302,7 @@ dim.survfit <- function(x) {
         else    newx$strata <- x$strata[indx]
     }
 
-    if (length(dd)==1) {  # no j dimension
+    if (!is.matrix(x[["surv"]])) {  # no j dimension
         for (k in c("time", "n.risk", "n.event", "n.censor", "n.enter",
                "surv", "std.err", "cumhaz", "std.chaz", "upper", "lower",
                "influence.surv", "influence.chaz"))
@@ -295,11 +320,21 @@ dim.survfit <- function(x) {
         for (k in c("surv", "std.err", "cumhaz", "std.chaz", "upper", "lower",
                "influence.surv", "influence.chaz"))
             if (!is.null(x[[k]])) newx[[k]] <- (x[[k]])[irow, j, drop=drop]
+        # for a survfit.coxph object, newdata is a data frame whose rows match j
+        if (!is.null(x[["newdata"]])) newx[["newdata"]] <- x[["newdata"]][j,]
     }
     newx
 }
+
+# Once upon a time I allowed survfit to be called without the ~1 portion of
+# the formula. This was a mistake for multiple reasons, and I later removed it.
+# The method below helps give a useful error message in some cases.
 survfit.Surv <- function(formula, ...)
     stop("the survfit function requires a formula as its first argument")
+
+# The confidence interval compututation is needed in more than one place, so
+# make it a function.  To do: make this user callable?
+
 survfit_confint <- function(p, se, logse=TRUE, conf.type, conf.int,
                             selow, ulimit=TRUE) {
     zval <- qnorm(1- (1-conf.int)/2, 0,1)

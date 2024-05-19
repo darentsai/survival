@@ -1,0 +1,10 @@
+*.o
+*~
+*.so
+noweb/code.nw
+noweb/code.tex
+noweb/code.aux
+noweb/code.log
+noweb/code.out
+noweb/code.toc
+noweb/noweb.sty

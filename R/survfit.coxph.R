@@ -4,7 +4,7 @@ survfit.coxph <-
             stype=2, ctype, 
             conf.type=c("log", "log-log", "plain", "none", "logit", "arcsin"),
             censor=TRUE, start.time, id, influence=FALSE,
-            na.action=na.pass, type, ...) {
+            na.action=na.pass, type, time0= FALSE,...) {
 
       Call <- match.call()
       Call[[1]] <- as.name("survfit")  #nicer output for the user
@@ -130,9 +130,11 @@ survfit.coxph <-
       if (!type %in% c("right", "counting", "mright", "mcounting"))
           stop("Cannot handle \"", type, "\" type survival data")
 
-      if (!missing(start.time)) {
+      if (missing(start.time)) t0 <- min(c(0, Y[,-ncol(Y)]))
+      else {
           if (!is.numeric(start.time) || length(start.time) > 1)
               stop("start.time must be a single numeric value")
+          t0 <- start.time
           # Start the curves after start.time
           # To do so, remove any rows of the data with an endpoint before that
           #  time.
@@ -212,7 +214,7 @@ survfit.coxph <-
                   stop("Newdata argument must be a data frame")
               }
               newdata <- data.frame(as.list(newdata), stringsAsFactors=FALSE)
-          }
+          }  else if (is.list(newdata)) newdata <- as.data.frame(newdata) 
           if (has.strata) {
               found.strata <- TRUE
               tempenv <- new.env(, parent=emptyenv())
@@ -239,8 +241,11 @@ survfit.coxph <-
           tcall$formula <- Terms2
           tcall$xlev <- object$xlevels[match(attr(Terms2,'term.labels'),
                                              names(object$xlevels), nomatch=0)]
+          tcall$na.action <- na.omit  # do not allow missing values
           tcall[[1L]] <- quote(stats::model.frame)
           mf2 <- eval(tcall)
+          if (nrow(mf2) ==0)
+              stop("all rows of newdata have missing values")
       }
       if (has.strata && found.strata) { #pull them off
           temp <- untangle.specials(Terms2, 'strata')
@@ -369,6 +374,7 @@ survfit.coxph <-
 
       if (!missing(start.time)) result$start.time <- start.time
 
+      if (!missing(newdata)) result$newdata <- newdata
       result$call <- Call
       class(result) <- c('survfitcox', 'survfit')
       result

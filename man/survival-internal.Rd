@@ -8,10 +8,14 @@
 \alias{match.ratetable}
 \alias{survfitCI}
 \alias{survfitKM}
+\alias{survfitTurnbull}
 \alias{survreg.fit}
 \alias{survpenal.fit}
 \alias{survdiff.fit}
 \alias{[.coxph.penalty}
+\alias{coef.survfit}
+\alias{vcov.survfit}
+\alias{confint.survfit}
 \title{Internal survival functions}
 \description{Internal survival functions}
 \usage{
@@ -27,17 +31,8 @@ coxpenal.df(hmat, hinv, fdiag, assign.list, ptype, nvar, pen1,
     pen2, sparse)
 coxpenal.fit(x, y, strata, offset, init, control, weights, method,
     rownames, pcols, pattr, assign, nocenter)
-coxph.wtest(var, b, toler.chol = 1e-09)
 agexact.fit(x, y, strata, offset, init, control, weights, method,
     rownames, resid=TRUE, nocenter=NULL) 
-survfitCI(X, Y, weights,  id, cluster, robust, istate,
-                       stype=1, ctype=1, 
-                       se.fit=TRUE,
-                       conf.int= .95,
-                       conf.type=c('log',  'log-log',  'plain', 'none',
-                                   'logit', 'arcsin'),
-                       conf.lower=c('usual', 'peto', 'modified'),
-                       influence=FALSE, start.time, p0, type)
 survfitKM(x, y, weights=rep(1,length(x)),
                        stype=1, ctype=1, 
                        se.fit=TRUE,
@@ -46,7 +41,7 @@ survfitKM(x, y, weights=rep(1,length(x)),
                                    'logit', 'arcsin'),
                        conf.lower=c('usual', 'peto', 'modified'),
                        start.time, id, cluster, robust,
-                       influence=FALSE, type) 
+                       influence=FALSE, type, entry, time0) 
 survfitTurnbull(x, y, weights,
                        type=c('kaplan-meier', 'fleming-harrington', 'fh2'),
                        error=c('greenwood', "tsiatis"), se.fit=TRUE,
@@ -54,7 +49,7 @@ survfitTurnbull(x, y, weights,
                        conf.type=c('log',  'log-log',  'plain', 'none',
                                    'logit', 'arcsin'),
                        conf.lower=c('usual', 'peto', 'modified'),
-                       start.time, robust, cluster)
+                       start.time, robust, cluster, time0)
 }
 \details{The arguments to these routines are not guaranteed to stay the
 same from release to release -- call them at your own risk!}

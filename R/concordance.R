@@ -34,7 +34,7 @@ concordance.formula <- function(object, data,
         if (is.factor(Y) && (is.ordered(Y) || length(levels(Y))==2))
             Y <- Surv(as.numeric(Y))
         else if (is.numeric(Y) && is.vector(Y))  Y <- Surv(Y)
-        else if (is.logical(Y)) Y <- as.numeric(Y)
+        else if (is.logical(Y)) Y <- Surv(as.numeric(Y))
         else stop("left hand side of the formula must be a numeric vector,
  survival object, or an orderable factor")
         timewt <- "n"
@@ -244,7 +244,7 @@ concordancefit <- function(y, x, strata, weights, ymin=NULL, ymax=NULL,
             } else {
                 sort.stop  <- order(-y[,2], y[,3], risk) -1L   #order by endpoint
                 sort.start <- order(-y[,1]) -1L       
-                gfit <- .Call(Cfastkm2, y, wts, sort.stop, sort.start)
+                gfit <- .Call(Cfastkm2, y, wts, sort.start, sort.stop)
             }
             etime <- gfit$etime
         }
